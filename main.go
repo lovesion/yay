@@ -131,6 +131,7 @@ func main() {
 
 		return
 	}
+	run.Logger.SetContext(ctx)
 
 	if luaEngine != nil {
 		luaEngine.SetLogger(run.Logger.Child("lua"))
@@ -159,6 +160,10 @@ func main() {
 	}()
 
 	if err = handleCmd(ctx, run, cmdArgs, dbExecutor); err != nil {
+		if errors.Is(err, context.Canceled) {
+			ret = 130
+			return
+		}
 		if str := err.Error(); str != "" {
 			fallbackLog.Errorln(str)
 		}

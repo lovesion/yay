@@ -1,6 +1,7 @@
 package text
 
 import (
+	"context"
 	"fmt"
 	"io"
 )
@@ -17,6 +18,7 @@ type Logger struct {
 	stdout io.Writer
 	stderr io.Writer
 	r      io.Reader
+	ctx    context.Context
 }
 
 func NewLogger(stdout, stderr io.Writer, r io.Reader, debug bool, name string) *Logger {
@@ -24,13 +26,21 @@ func NewLogger(stdout, stderr io.Writer, r io.Reader, debug bool, name string) *
 		debug:  debug,
 		name:   name,
 		r:      r,
+		ctx:    context.Background(),
 		stderr: stderr,
 		stdout: stdout,
 	}
 }
 
+// SetContext makes interactive input return when the operation is cancelled.
+func (l *Logger) SetContext(ctx context.Context) {
+	l.ctx = ctx
+}
+
 func (l *Logger) Child(name string) *Logger {
-	return NewLogger(l.stdout, l.stderr, l.r, l.debug, name)
+	child := NewLogger(l.stdout, l.stderr, l.r, l.debug, name)
+	child.SetContext(l.ctx)
+	return child
 }
 
 func (l *Logger) sprintDebug(a ...any) string {

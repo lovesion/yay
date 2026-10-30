@@ -3,16 +3,41 @@
 package text
 
 import (
+	"context"
 	"io"
 	"os"
 	"path"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/leonelquinteros/gotext"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestGetInputReturnsWhenContextIsCancelled(t *testing.T) {
+	reader, writer := io.Pipe()
+	defer writer.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	logger := NewLogger(io.Discard, io.Discard, reader, false, "test")
+	logger.SetContext(ctx)
+
+	result := make(chan error, 1)
+	go func() {
+		_, err := logger.GetInput("", false)
+		result <- err
+	}()
+
+	cancel()
+	select {
+	case err := <-result:
+		require.ErrorIs(t, err, context.Canceled)
+	case <-time.After(time.Second):
+		t.Fatal("input did not return after its context was cancelled")
+	}
+}
 
 func TestLessRunes(t *testing.T) {
 	t.Parallel()

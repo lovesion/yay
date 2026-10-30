@@ -2,6 +2,7 @@ package text
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"strings"
 	"unicode"
@@ -19,7 +20,36 @@ func (l *Logger) GetInput(defaultValue string, noConfirm bool) (string, error) {
 	}
 
 	reader := bufio.NewReader(l.r)
+	if l.ctx == nil || l.ctx.Done() == nil {
+		return readLine(reader)
+	}
 
+	type result struct {
+		line     string
+		overflow bool
+		err      error
+	}
+	resultCh := make(chan result, 1)
+	go func() {
+		line, overflow, err := reader.ReadLine()
+		resultCh <- result{string(line), overflow, err}
+	}()
+
+	select {
+	case result := <-resultCh:
+		if result.err != nil {
+			return "", result.err
+		}
+		if result.overflow {
+			return "", ErrInputOverflow{}
+		}
+		return result.line, nil
+	case <-l.ctx.Done():
+		return "", context.Cause(l.ctx)
+	}
+}
+
+func readLine(reader *bufio.Reader) (string, error) {
 	buf, overflow, err := reader.ReadLine()
 	if err != nil {
 		return "", err
